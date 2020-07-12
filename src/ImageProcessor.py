@@ -49,7 +49,7 @@ def writeRabbitMessage(messageBody):
         rabbitTransmitChannel.exchange_declare(exchange=rabbitMqTransmitExchange, exchange_type='topic', durable=True)
 
         print("Writing to RabbitMQ {0}{1}:{2}".format(rabbitMqTransmitHost, rabbitMqTransmitVDir, rabbitMqTransmitRoutingKey))        
-        rabbitChannel.basic_publish(exchange=rabbitMqTransmitExchange, 
+        rabbitTransmitChannel.basic_publish(exchange=rabbitMqTransmitExchange, 
             routing_key=rabbitMqTransmitRoutingKey, 
             body=json.dumps(messageBody), 
             properties=pika.BasicProperties(content_type="application/json"))
@@ -97,7 +97,8 @@ def processReceivedRabbitMessage(ch, method, properties, body):
     message["camName"] = jsonData["camName"]
     message["captureTime"] = jsonData["captureTime"]
     message["processedTime"] = time.strftime("%Y-%m-%d_%H-%M-%S")
-    message["ProcessingDuration"] = endTime - startTime
+    message["processingDuration"] = endTime - startTime
+    message["classifierTag"] = classifierTag
     writeRabbitMessage(message)
 
 
@@ -112,6 +113,9 @@ kerasLabelsFile = os.environ.get("KERAS_LABELS", '')
 if kerasModelFile is None or not os.path.isfile(kerasModelFile):
     print("A valid Keras label file is required to be supplied via enviornment variable 'KERAS_LABELS'")
     exit()
+
+# Classifier tag, appended to Rabbit messages
+classifierTag = os.environ.get("CLASSIFIER_TAG", '')
 
 # RabbitMQ Server
 rabbitMqReceiveHost = os.environ.get("RABBITMQ_RECEIVE_HOST", '')
@@ -142,15 +146,15 @@ labels = loadKerasLabels(kerasLabelsFile)
 # Connect to RabbitMQ
 rabbitReceiveCreds = pika.PlainCredentials(rabbitMqReceiveUser, rabbitMqReceivePass)
 rabbitReceiveParams = pika.ConnectionParameters(rabbitMqReceiveHost, rabbitMqReceivePort, rabbitMqReceiveVDir, rabbitReceiveCreds)
-rabbitConn = pika.BlockingConnection(rabbitReceiveParams)
+rabbitReceiveConn = pika.BlockingConnection(rabbitReceiveParams)
 
 # Listen on target exchange for messages
-rabbitChannel = rabbitConn.channel()
-rabbitChannel.exchange_declare(exchange=rabbitMqReceiveExchange, exchange_type='topic', durable=True)
-queueDeclareResult = rabbitChannel.queue_declare(queue=rabbitMqReceiveQueue, exclusive=(rabbitMqReceiveQueue != ''))
+rabbitReceiveChannel = rabbitReceiveConn.channel()
+rabbitReceiveChannel.exchange_declare(exchange=rabbitMqReceiveExchange, exchange_type='topic', durable=True)
+queueDeclareResult = rabbitReceiveChannel.queue_declare(queue=rabbitMqReceiveQueue, exclusive=(rabbitMqReceiveQueue != ''))
 rabbitMqReceiveQueue = queue_name = queueDeclareResult.method.queue
-rabbitChannel.queue_bind(queue=rabbitMqReceiveQueue, exchange=rabbitMqReceiveExchange, routing_key=rabbitMqReceiveRoutingKey)
-rabbitChannel.basic_consume(queue=rabbitMqReceiveQueue, auto_ack=True, on_message_callback=processReceivedRabbitMessage)
+rabbitReceiveChannel.queue_bind(queue=rabbitMqReceiveQueue, exchange=rabbitMqReceiveExchange, routing_key=rabbitMqReceiveRoutingKey)
+rabbitReceiveChannel.basic_consume(queue=rabbitMqReceiveQueue, auto_ack=True, on_message_callback=processReceivedRabbitMessage)
 
 print("Listening for messages...")
-rabbitChannel.start_consuming()
+rabbitReceiveChannel.start_consuming()
