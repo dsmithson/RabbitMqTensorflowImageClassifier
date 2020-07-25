@@ -61,12 +61,12 @@ def writeRabbitMessage(messageBody):
 def writeImageToFileIfConfidenceIsLow(image, predictionMatch, camName):
     
     confidence = predictionMatch.predictionConfidence
-    if(lowConfidenceSaveDirectory != '' and confidence < lowConfidenceThreshold)
+    if lowConfidenceSaveDirectory != '' and confidence < lowConfidenceThreshold:
         bestGuessLabel = predictionMatch.bestLabel
         bestGuessIndex = predictionMatch.bestIndex
         outputFilename = "{0}-{1}-{2}-{3}-{4}.jpg".format(time.strftime("%Y-%m-%d_%H-%M-%S"), camName, confidence, bestGuessIndex, bestGuessLabel)
         print("Saving image with low confidence score of {0} to {1} for review".format(confidence, outputFilename))
-        image.save(os.path.join(lowConfidenceSaveDirectory, outputFilename)
+        image.save(os.path.join(lowConfidenceSaveDirectory, outputFilename))
 
 def processReceivedRabbitMessage(ch, method, properties, body):
     #print(" [x] Received %r" % body)
