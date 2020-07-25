@@ -48,7 +48,7 @@ def writeRabbitMessage(messageBody):
         rabbitTransmitChannel = rabbitTransmitConn.channel()
         rabbitTransmitChannel.exchange_declare(exchange=rabbitMqTransmitExchange, exchange_type='topic', durable=True)
 
-        print("Writing to RabbitMQ {0}{1}:{2}".format(rabbitMqTransmitHost, rabbitMqTransmitVDir, rabbitMqTransmitRoutingKey))        
+        print("Writing to RabbitMQ {0}{1}{2}:{3}".format(rabbitMqTransmitHost, rabbitMqTransmitVDir, rabbitMqTransmitExchange, rabbitMqTransmitRoutingKey))        
         rabbitTransmitChannel.basic_publish(exchange=rabbitMqTransmitExchange, 
             routing_key=rabbitMqTransmitRoutingKey, 
             body=json.dumps(messageBody), 
@@ -57,6 +57,16 @@ def writeRabbitMessage(messageBody):
         rabbitTransmitConn.close()
     except Exception as e:
         print("Failed to write RabbitMQ message: {0}".format(e))
+
+def writeImageToFileIfConfidenceIsLow(image, predictionMatch, camName):
+    
+    confidence = predictionMatch.predictionConfidence
+    if(lowConfidenceSaveDirectory != '' and confidence < lowConfidenceThreshold)
+        bestGuessLabel = predictionMatch.bestLabel
+        bestGuessIndex = predictionMatch.bestIndex
+        outputFilename = "{0}-{1}-{2}-{3}-{4}.jpg".format(time.strftime("%Y-%m-%d_%H-%M-%S"), camName, confidence, bestGuessIndex, bestGuessLabel)
+        print("Saving image with low confidence score of {0} to {1} for review".format(confidence, outputFilename))
+        image.save(os.path.join(lowConfidenceSaveDirectory, outputFilename)
 
 def processReceivedRabbitMessage(ch, method, properties, body):
     #print(" [x] Received %r" % body)
@@ -91,9 +101,13 @@ def processReceivedRabbitMessage(ch, method, properties, body):
     prediction = model.predict(data)
     endTime = time.time()
     print("Prediction of result: {0}".format(prediction))
+
+    # Write image to file if confidence is low
+    bestMatch = findMatch(labels, prediction)
+    writeImageToFileIfConfidenceIsLow(image, bestMatch, jsonData["camName"])
     
     # Format our data to be sent on Rabbit as a JSON payload
-    message = findMatch(labels, prediction)
+    message = bestMatch
     message["camName"] = jsonData["camName"]
     message["captureTime"] = jsonData["captureTime"]
     message["processedTime"] = time.strftime("%Y-%m-%d_%H-%M-%S")
@@ -135,6 +149,10 @@ rabbitMqTransmitUser = os.environ.get("RABBITMQ_TRANSMIT_USER", rabbitMqReceiveU
 rabbitMqTransmitPass = os.environ.get("RABBITMQ_TRANSMIT_PASS", rabbitMqReceivePass)
 rabbitMqTransmitExchange = os.environ.get("RABBITMQ_TRANSMIT_EXCHANGE", rabbitMqReceiveExchange)
 rabbitMqTransmitRoutingKey = os.environ.get("RABBITMQ_TRANSMIT_ROUTING_KEY", "actions.write.prediction")
+
+# Log confidence save settings
+lowConfidenceThreshold = os.environ.get("PREDICTION_LOW_CONFIDENCE_THRESHOLD", 0.9)
+lowConfidenceSaveDirectory = os.environ.get("PREDICTION_LOW_CONFIDENCE_DIR", '')
 
 # Disable scientific notation for clarity
 np.set_printoptions(suppress=True)
