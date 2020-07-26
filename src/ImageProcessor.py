@@ -60,13 +60,17 @@ def writeRabbitMessage(messageBody):
 
 def writeImageToFileIfConfidenceIsLow(image, predictionMatch, camName):
     
-    confidence = predictionMatch.predictionConfidence
-    if lowConfidenceSaveDirectory != '' and confidence < lowConfidenceThreshold:
-        bestGuessLabel = predictionMatch.bestLabel
-        bestGuessIndex = predictionMatch.bestIndex
-        outputFilename = "{0}-{1}-{2}-{3}-{4}.jpg".format(time.strftime("%Y-%m-%d_%H-%M-%S"), camName, confidence, bestGuessIndex, bestGuessLabel)
-        print("Saving image with low confidence score of {0} to {1} for review".format(confidence, outputFilename))
-        image.save(os.path.join(lowConfidenceSaveDirectory, outputFilename))
+    try:
+        confidence = predictionMatch["predictionConfidence"]
+        if lowConfidenceSaveDirectory != '' and confidence < lowConfidenceThreshold:
+            bestGuessLabel = predictionMatch["bestLabel"]
+            bestGuessIndex = predictionMatch["bestIndex"]
+            outputFilename = "{0}-{1}-{2}-{3}-{4}.jpg".format(time.strftime("%Y-%m-%d_%H-%M-%S"), camName, confidence, bestGuessIndex, bestGuessLabel)
+            print("Saving image with low confidence score of {0} to {1} for review".format(confidence, outputFilename))
+            image.save(os.path.join(lowConfidenceSaveDirectory, outputFilename))
+    except Exception as e:
+        print("Failed to write local image with low rated prediction: {0}".format(e))
+
 
 def processReceivedRabbitMessage(ch, method, properties, body):
     #print(" [x] Received %r" % body)
@@ -100,17 +104,19 @@ def processReceivedRabbitMessage(ch, method, properties, body):
     # run the inference
     prediction = model.predict(data)
     endTime = time.time()
-    print("Prediction of result: {0}".format(prediction))
+    processedTimeStr = time.strftime("%Y-%m-%d_%H-%M-%S")
 
     # Write image to file if confidence is low
     bestMatch = findMatch(labels, prediction)
+    print("[{0}] Prediction: {1}".format(processedTimeStr, prediction))
+    print("[{0}] Best Match: {1}".format(processedTimeStr, json.dumps(bestMatch)))
     writeImageToFileIfConfidenceIsLow(image, bestMatch, jsonData["camName"])
     
     # Format our data to be sent on Rabbit as a JSON payload
     message = bestMatch
     message["camName"] = jsonData["camName"]
     message["captureTime"] = jsonData["captureTime"]
-    message["processedTime"] = time.strftime("%Y-%m-%d_%H-%M-%S")
+    message["processedTime"] = processedTimeStr
     message["processingDuration"] = endTime - startTime
     message["classifierTag"] = classifierTag
     writeRabbitMessage(message)
@@ -151,7 +157,7 @@ rabbitMqTransmitExchange = os.environ.get("RABBITMQ_TRANSMIT_EXCHANGE", rabbitMq
 rabbitMqTransmitRoutingKey = os.environ.get("RABBITMQ_TRANSMIT_ROUTING_KEY", "actions.write.prediction")
 
 # Log confidence save settings
-lowConfidenceThreshold = os.environ.get("PREDICTION_LOW_CONFIDENCE_THRESHOLD", 0.9)
+lowConfidenceThreshold = float(os.environ.get("PREDICTION_LOW_CONFIDENCE_THRESHOLD", 0.9))
 lowConfidenceSaveDirectory = os.environ.get("PREDICTION_LOW_CONFIDENCE_DIR", '')
 
 # Disable scientific notation for clarity
@@ -169,7 +175,7 @@ rabbitReceiveConn = pika.BlockingConnection(rabbitReceiveParams)
 # Listen on target exchange for messages
 rabbitReceiveChannel = rabbitReceiveConn.channel()
 rabbitReceiveChannel.exchange_declare(exchange=rabbitMqReceiveExchange, exchange_type='topic', durable=True)
-queueDeclareResult = rabbitReceiveChannel.queue_declare(queue=rabbitMqReceiveQueue, exclusive=(rabbitMqReceiveQueue != ''))
+queueDeclareResult = rabbitReceiveChannel.queue_declare(queue=rabbitMqReceiveQueue, exclusive=(rabbitMqReceiveQueue == ''))
 rabbitMqReceiveQueue = queue_name = queueDeclareResult.method.queue
 rabbitReceiveChannel.queue_bind(queue=rabbitMqReceiveQueue, exchange=rabbitMqReceiveExchange, routing_key=rabbitMqReceiveRoutingKey)
 rabbitReceiveChannel.basic_consume(queue=rabbitMqReceiveQueue, auto_ack=True, on_message_callback=processReceivedRabbitMessage)
