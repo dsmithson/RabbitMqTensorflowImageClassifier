@@ -63,8 +63,8 @@ def writeImageToFileIfConfidenceIsLow(image, predictionMatch, camName):
     try:
         confidence = predictionMatch["predictionConfidence"]
         if lowConfidenceSaveDirectory != '' and confidence < lowConfidenceThreshold:
-            bestGuessLabel = predictionMatch["bestLabel"]
-            bestGuessIndex = predictionMatch["bestIndex"]
+            bestGuessLabel = predictionMatch["predictionLabel"]
+            bestGuessIndex = predictionMatch["predictionIndex"]
             outputFilename = "{0}-{1}-{2}-{3}-{4}.jpg".format(time.strftime("%Y-%m-%d_%H-%M-%S"), camName, confidence, bestGuessIndex, bestGuessLabel)
             print("Saving image with low confidence score of {0} to {1} for review".format(confidence, outputFilename))
             image.save(os.path.join(lowConfidenceSaveDirectory, outputFilename))
