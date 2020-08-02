@@ -73,10 +73,13 @@ def writeImageToFileIfConfidenceIsLow(image, predictionMatch, camName):
 
 
 def processReceivedRabbitMessage(ch, method, properties, body):
-    #print(" [x] Received %r" % body)
-    #print("Received message: {0}".format(body))
-    #print("Properties: {0}".format(properties))
+
+    # Check that this image message is for us
     jsonData = json.loads(body.decode("utf-8"))
+    msgCamName = jsonData["camName"]
+    if msgCamName != camName and camName != '':
+        return
+
     print("Processing message from '{0}' captured {1}".format(jsonData["camName"], jsonData["captureTime"]))
     startTime = time.time()
 
@@ -136,6 +139,7 @@ if kerasModelFile is None or not os.path.isfile(kerasModelFile):
 
 # Classifier tag, appended to Rabbit messages
 classifierTag = os.environ.get("CLASSIFIER_TAG", '')
+camName = os.environ.get("CAMERA_NAME", '')
 
 # RabbitMQ Server
 rabbitMqReceiveHost = os.environ.get("RABBITMQ_RECEIVE_HOST", '')
