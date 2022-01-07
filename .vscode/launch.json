@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/imageProcessor.py",
+            "console": "integratedTerminal",
+            "env": {
+                "KERAS_MODEL": "./debug/keras_model.h5",
+                "KERAS_LABELS": "./debug/labels.txt",
+                "CAMERA_NAME": "garage",
+                "CLASSIFIER_TAG": "garageCMaxPresent",
+                "RABBITMQ_RECEIVE_HOST": "ds-runsmart-ubuntu",
+                "RABBITMQ_RECEIVE_VDIR": "/",
+                "RABBITMQ_RECEIVE_USER": "devtest",
+                "RABBITMQ_RECEIVE_PASS": "devtest",
+                "RABBITMQ_RECEIVE_EXCHANGE": "knightware.cameraImages",
+                "RABBITMQ_RECEIVE_ROUTING_KEY": "actions.write.image",
+                "RABBITMQ_TRANSMIT_ROUTING_KEY": "actions.write.prediction",
+                "PREDICTION_LOW_CONFIDENCE_THRESHOLD": "0.9",
+                "PREDICTION_LOW_CONFIDENCE_DIR": "./debug/lowconfidence"
+            }
+        }
+    ]
+}
